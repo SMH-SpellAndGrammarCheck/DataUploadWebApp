@@ -10,6 +10,7 @@ const http = require('http');
 const formidable = require('formidable');
 const fs = require('fs');
 const path = require('path');
+const uuidv4 = require('uuid/v4');
 const PORT = process.env.PORT || 1337;
 
 let app = express();
@@ -31,7 +32,28 @@ let parsecb = (err, fields, files, res) => {
 		fs.writeFile(newPath, data, (err) => {
 			fs.unlink(oldPath, (err) => {
 				if (err) { res.status(500); res.json({'success': false}); }
-				else { res.status(200); res.json({'success': true}); }
+				else { 
+					// TODO send to heiko
+					let post_options = {
+						host: 'TODO',
+						port: '5002',
+						path: '/tasks',
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/pdf',
+							'correlationid': uuidv4(),
+							'language': 'en',
+							'email': fields.email
+						}
+					}
+					let post_req = http.request(post_options, function (res) {
+						// TODO res from heiko
+					});
+					post_req.write(data);
+					post_req.end();
+
+					res.status(200); res.json({'success': true}); 
+				}
 			});
 		});
 	});
