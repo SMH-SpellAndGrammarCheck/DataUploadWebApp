@@ -11,80 +11,65 @@ const formidable = require('formidable');
 const fs = require('fs');
 const path = require('path');
 const uuidv4 = require('uuid/v4');
-var querystring = require('querystring');
-var pdfUtil = require('pdf-to-text');
+const pdfUtil = require('pdf-to-text');
+const azure = require('azure');
 const PORT = process.env.PORT || 1337;
 
 let app = express();
 app.use('/static', express.static(path.join(__dirname, 'public')))
 
-let server = app.listen(PORT, () => {
-  let host = server.address().address;
-  let port = server.address().port;
-  console.log("[API] [Start] Listening at http://%s:%s", host, port);
+// Read queue data and create queue if not already exists
+const queueData = {
+	queuename: "texttoworker",
+	connectionString: "Endpoint=sb://texttoworker.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=zPO6jFY4L9MrwoKz41MBWJdCBD8rYmCCifzwhCnFC3o="
+}
+
+const serviceBusService = azure.createServiceBusService(queueData.connectionString);
+serviceBusService.createQueueIfNotExists(queueData.queuename, function (error) {
+	if (!error) {
+		// Queue exists
+		console.log('Queue exists!');
+	}
 });
 
+// Create Server
+let server = app.listen(PORT, () => {
+	let host = server.address().address;
+	let port = server.address().port;
+	console.log("[API] [Start] Listening at http://%s:%s", host, port);
+});
+
+/*
+ * Splits given text into chunks
+ * @param text - The text to split
+ * @return chunks - array of chunks
+*/
 let splitText = (text) => {
 	let chunks = text.split('.');
 	return chunks;
 }
+
+let pdfText = '';
 
 let parsecb = (err, fields, files, res) => {
 	let oldPath = files.file.path;
 	let fileExt = files.file.name.split('.').pop();
 	let fileName = oldPath.substr(oldPath.lastIndexOf('\\') + 1);
 	let newPath = path.join(process.cwd(), '/uploads/', fileName + '.' + fileExt);
-	let testPath = path.join(process.cwd(), '/uploads/', fileName + '.txt');
-	console.log(fields);
 	fs.readFile(oldPath, (err, data) => {
 		fs.writeFile(newPath, data, (err) => {
 			fs.unlink(oldPath, (err) => {
-				if (err) { res.status(500); res.json({'success': false}); }
+				if (err) { res.status(500); res.json({ 'success': false }); }
 				else {
-					let chunks = [];
-					pdfUtil.pdfToText(newPath, function(err, text) {
+					pdfUtil.pdfToText(newPath, function (err, text) {
 						if (err) {
 							console.log('[Error] PDF not exists or could not be parsed!');
 						} else {
-							chunks = splitText(text);
+							pdfText = text;
+							// console.log(pdfText);
 						}
 					});
-
-					console.log(chunks);
-					/* const options = {
-						hostname: '127.0.0.1',
-						port: 5000,
-						path: '/tasks',
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/pdf',
-						  	'correlationid': uuidv4(),
-						  	'language': 'en', //TODO
-							'email': fields.email
-						}
-					};
-					  
-					const req = http.request(options, (result) => {
-						console.log(`STATUS: ${result.statusCode}`);
-						console.log(`HEADERS: ${JSON.stringify(result.headers)}`);
-						result.setEncoding('utf8');
-						result.on('data', (chunk) => {
-						  console.log(`BODY: ${chunk}`);
-						});
-						result.on('end', () => {
-						  console.log('No more data in response.');
-						});
-					});
-
-					req.on('error', (e) => {
-						console.error(`problem with request: ${e.message}`);
-					});
-
-					// write data to request body
-					req.write(data);
-					req.end();  */
-
-					res.status(200); res.json({'success': true}); 
+					res.status(200); res.json({ 'success': true });
 				}
 			});
 		});
@@ -92,10 +77,41 @@ let parsecb = (err, fields, files, res) => {
 };
 
 let uploadfn = (req, res) => {
-	var form = new formidable.IncomingForm();
-    form.parse(req, (err, fields, files) => {
+	let form = new formidable.IncomingForm();
+	let email = '';
+	form.parse(req, (err, fields, files) => {
+		if (fields.email != undefined && fields.email != '') {
+			email = fields.email;
+		} else {
+			res.status(400); res.json({ 'success': false });
+			return;
+		}
 		parsecb(err, fields, files, res);
 	});
+
+	setTimeout(function () {
+		let chunks = pdfText.split('.');
+		// console.log(chunks);
+		for (let i = 0; i < chunks.length; i++) {
+			let message = {
+				body: chunks[i],
+				customProperties: {
+					correlationid: uuidv4(),
+					language: 'en', //TODO
+					email: email,
+					chunknr: i,
+					lastOne: i != chunks.length ? false : true
+				}
+			};
+
+			serviceBusService.sendQueueMessage(queueData.queuename, message, function (error) {
+				if (!error) {
+					// message sent
+					console.log('Sending message' + message);
+				}
+			});
+		}
+	}, 20000);
 };
 
 app.post('/upload', uploadfn);

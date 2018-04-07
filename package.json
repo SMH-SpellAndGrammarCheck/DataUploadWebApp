@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/SMH-SpellAndGrammarCheck/DataUploadWebApp#readme",
   "dependencies": {
+    "azure": "^2.2.1-preview",
     "express": "^4.16.3",
     "formidable": "^1.2.1",
     "fs": "0.0.1-security",
