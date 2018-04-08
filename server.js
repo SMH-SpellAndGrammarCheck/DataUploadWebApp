@@ -18,6 +18,10 @@ const PORT = process.env.PORT || 1337;
 let app = express();
 app.use('/static', express.static(path.join(__dirname, 'public')))
 
+if (!fs.existsSync(__dirname + '/uploads')) {
+	fs.mkdirSync(__dirname + '/uploads');
+}
+
 // Read queue data and create queue if not already exists
 const queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
 	console.log('[Error] Error while reading queue data');
