@@ -23,9 +23,18 @@ if (!fs.existsSync(__dirname + '/uploads')) {
 }
 
 // Read queue data and create queue if not already exists
-const queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
-	console.log('[Error] Error while reading queue data');
-}));
+let queueData = {}
+if ( process.env.QUEUE_NAME === undefined || process.env.CONNECTION_STRING === undefined) {
+    queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
+        console.log('[Error] Error while reading queue data');
+    }));
+} else {
+	queueData = {
+		"queuename": process.env.QUEUE_NAME,
+		"connectionString": process.env.connectionString
+	}
+}
+
 
 const serviceBusService = azure.createServiceBusService(queueData.connectionString);
 serviceBusService.createQueueIfNotExists(queueData.queuename, function (error) {
