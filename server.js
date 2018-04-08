@@ -19,16 +19,15 @@ let app = express();
 app.use('/static', express.static(path.join(__dirname, 'public')))
 
 // Read queue data and create queue if not already exists
-const queueData = {
-	queuename: "texttoworker",
-	connectionString: "Endpoint=sb://texttoworker.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=zPO6jFY4L9MrwoKz41MBWJdCBD8rYmCCifzwhCnFC3o="
-}
+const queueData = JSON.parse(fs.readFileSync(__dirname + '/queue.json', 'utf8', (err) => {
+	console.log('[Error] Error while reading queue data');
+}));
 
 const serviceBusService = azure.createServiceBusService(queueData.connectionString);
 serviceBusService.createQueueIfNotExists(queueData.queuename, function (error) {
 	if (!error) {
 		// Queue exists
-		console.log('Queue exists!');
+		console.log('[Log] Queue exists!');
 	}
 });
 
@@ -93,8 +92,9 @@ let uploadfn = (req, res) => {
 		let chunks = pdfText.split('.');
 		// console.log(chunks);
 		for (let i = 0; i < chunks.length; i++) {
+			if (!isUnwantedChunk(chunks[i])) { continue; }
 			let message = {
-				body: chunks[i],
+				body: removeHyphenation(removeNewLines(chunks[i])),
 				customProperties: {
 					correlationid: uuidv4(),
 					language: 'en', //TODO
@@ -107,11 +107,23 @@ let uploadfn = (req, res) => {
 			serviceBusService.sendQueueMessage(queueData.queuename, message, function (error) {
 				if (!error) {
 					// message sent
-					console.log('Sending message' + message);
+					console.log('[Log] Sending message ' + message.customProperties.chunknr);
 				}
 			});
 		}
 	}, 20000);
+};
+
+let removeHyphenation = (chunk) => {
+	return chunk.replace('-\r ', '');
+};
+
+let removeNewLines = (chunk) => {
+	return chunk.replace('\n', ' ');
+};
+
+let isUnwantedChunk = (chunk) => {
+	return chunk.match('.*[A-Za-z].*');
 };
 
 app.post('/upload', uploadfn);
