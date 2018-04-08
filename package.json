@@ -1,7 +1,7 @@
 {
   "name": "datauploadwebapp",
   "version": "1.0.0",
-  "description": "A simple web app running on Azure for uploading a PDF for further processing.",
+  "description": "A simple web app running on Azure for uploading PDFs, retrieve text and send text to Azure Service Bus Queue.",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -12,8 +12,9 @@
     "url": "git+https://github.com/SMH-SpellAndGrammarCheck/DataUploadWebApp.git"
   },
   "keywords": [
-    "Web",
-    "App",
+    "Azure",
+    "Text",
+    "Processing",
     "PDF",
     "Upload"
   ],
@@ -30,9 +31,7 @@
     "fs": "0.0.1-security",
     "http": "0.0.0",
     "path": "^0.12.7",
-    "pdf-text": "^0.4.0",
     "pdf-to-text": "0.0.6",
-    "querystring": "^0.2.0",
     "uuid": "^3.2.1"
   }
 }
