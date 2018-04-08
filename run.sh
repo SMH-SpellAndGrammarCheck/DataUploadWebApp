@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-sudo docker stop maild
-sudo docker rm maild
+sudo docker stop uploadd
+sudo docker rm uploadd
 
 echo "Please enter the Queue name for this instance: "
 read QUEUE_NAME
