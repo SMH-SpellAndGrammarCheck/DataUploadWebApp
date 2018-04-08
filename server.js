@@ -53,12 +53,14 @@ let splitText = (text) => {
 }
 
 let pdfText = '';
+let pdfPath = '';
 
 let parsecb = (err, fields, files, res) => {
 	let oldPath = files.file.path;
 	let fileExt = files.file.name.split('.').pop();
 	let fileName = oldPath.substr(oldPath.lastIndexOf('\\') + 1);
 	let newPath = path.join(process.cwd(), '/uploads/', fileName + '.' + fileExt);
+	pdfPath = newPath;
 	fs.readFile(oldPath, (err, data) => {
 		fs.writeFile(newPath, data, (err) => {
 			fs.unlink(oldPath, (err) => {
@@ -115,6 +117,8 @@ let uploadfn = (req, res) => {
 				}
 			});
 		}
+		// Delete PDF
+		fs.unlinkSync(pdfPath);
 	}, 20000);
 };
 
