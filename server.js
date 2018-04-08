@@ -31,7 +31,7 @@ if ( process.env.QUEUE_NAME === undefined || process.env.CONNECTION_STRING === u
 } else {
 	queueData = {
 		"queuename": process.env.QUEUE_NAME,
-		"connectionString": process.env.connectionString
+		"connectionString": process.env.CONNECTION_STRING
 	}
 }
 
