@@ -1,8 +1,8 @@
-/*
+/**
  * A simple Web App for uploading PDFs and send them to another service for further processing.
  * ------------------
- * Author: SMH - Sandro Speth, Matthias Hermann, Heiko Geppert
- * Version: 1.0.0
+ * @author SMH - Sandro Speth, Matthias Hermann, Heiko Geppert
+ * @version 1.0.0
  */
 
 const express = require('express');
@@ -34,8 +34,6 @@ if ( process.env.QUEUE_NAME === undefined || process.env.CONNECTION_STRING === u
 		"connectionString": process.env.CONNECTION_STRING
 	}
 }
-
-
 const serviceBusService = azure.createServiceBusService(queueData.connectionString);
 serviceBusService.createQueueIfNotExists(queueData.queuename, function (error) {
 	if (!error) {
@@ -44,6 +42,7 @@ serviceBusService.createQueueIfNotExists(queueData.queuename, function (error) {
 	}
 });
 
+
 // Create Server
 let server = app.listen(PORT, () => {
 	let host = server.address().address;
@@ -51,7 +50,7 @@ let server = app.listen(PORT, () => {
 	console.log("[API] [Start] Listening at http://%s:%s", host, port);
 });
 
-/*
+/**
  * Splits given text into chunks
  * @param text - The text to split
  * @return chunks - array of chunks
@@ -64,6 +63,13 @@ let splitText = (text) => {
 let pdfText = '';
 let pdfPath = '';
 
+/**
+ * Get PDF, save it in directory and read text of pdf
+ * @param {*} err 
+ * @param {*} fields 
+ * @param {*} files 
+ * @param {*} res 
+ */
 let parsecb = (err, fields, files, res) => {
 	let oldPath = files.file.path;
 	let fileExt = files.file.name.split('.').pop();
@@ -90,6 +96,11 @@ let parsecb = (err, fields, files, res) => {
 	});
 };
 
+/**
+ * Function for upload endpoint to parse form for pdf
+ * @param {*} req 
+ * @param {*} res 
+ */
 let uploadfn = (req, res) => {
 	let form = new formidable.IncomingForm();
 	let email = '';
@@ -104,43 +115,64 @@ let uploadfn = (req, res) => {
 	});
 
 	setTimeout(function () {
-		let chunks = pdfText.split('.');
-		// console.log(chunks);
-		for (let i = 0; i < chunks.length; i++) {
-			if (!isUnwantedChunk(chunks[i])) { continue; }
-			let message = {
-				body: removeHyphenation(removeNewLines(chunks[i])),
-				customProperties: {
-					correlationid: uuidv4(),
-					language: 'en', //TODO
-					email: email,
-					chunknr: i,
-					lastOne: i != chunks.length ? false : true
-				}
-			};
-
-			serviceBusService.sendQueueMessage(queueData.queuename, message, function (error) {
-				if (!error) {
-					// message sent
-					console.log('[Log] Sending message ' + message.customProperties.chunknr);
-				}
-			});
-		}
+		createMessageAndSend(email);
 		// Delete PDF
 		fs.unlinkSync(pdfPath);
 	}, 20000);
 };
 
+/**
+ * Create message for service bus queue and send it to queue
+ * @param {*} email 
+ */
+let createMessageAndSend = (email) => {
+	let chunks = pdfText.split('.');
+	// console.log(chunks);
+	for (let i = 0; i < chunks.length; i++) {
+		if (!isUnwantedChunk(chunks[i])) { continue; }
+		let message = {
+			body: removeHyphenation(removeNewLines(chunks[i])),
+			customProperties: {
+				correlationid: uuidv4(),
+				language: 'en', //TODO
+				email: email,
+				chunknr: i,
+				lastOne: i != chunks.length ? false : true
+			}
+		};
+
+		serviceBusService.sendQueueMessage(queueData.queuename, message, function (error) {
+			if (!error) {
+				// message sent
+				console.log('[Log] Sending message ' + message.customProperties.chunknr);
+			}
+		});
+	}
+};
+
+/**
+ * Remove hyphenation which where result of reading text out of pdf
+ * @param {*} chunk 
+ */
 let removeHyphenation = (chunk) => {
 	return chunk.replace('-\r ', '');
 };
 
+/**
+ * Remove new lines which where result of reading text out of pdf
+ * @param {*} chunk 
+ */
 let removeNewLines = (chunk) => {
 	return chunk.replace('\n', ' ');
 };
 
+/**
+ * Check if there is any letter in the chunk
+ * @param {*} chunk 
+ */
 let isUnwantedChunk = (chunk) => {
 	return chunk.match('.*[A-Za-z].*');
 };
 
+// Endpoint for POST Request
 app.post('/upload', uploadfn);
